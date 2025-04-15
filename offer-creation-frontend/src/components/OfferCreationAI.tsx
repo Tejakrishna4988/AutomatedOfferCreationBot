@@ -90,6 +90,11 @@ const OfferCreationAI: React.FC = () => {
   };
 
   const handleTextSubmit = async () => {
+    if (!rawText.trim()) {
+      setError('Please enter some text first');
+      return;
+    }
+
     try {
       setLoading(true);
       setError('');
@@ -153,6 +158,11 @@ const OfferCreationAI: React.FC = () => {
       return;
     }
 
+    if (file.size === 0) {
+      setError('The selected file is empty');
+      return;
+    }
+
     try {
       setLoading(true);
       setError('');
@@ -209,6 +219,7 @@ const OfferCreationAI: React.FC = () => {
       <button 
         onClick={() => setStep(2)}
         className="primary-button"
+        style={{ margin: 'auto' }}
       >
         Get Started
       </button>
@@ -216,50 +227,71 @@ const OfferCreationAI: React.FC = () => {
   );
 
   const renderStep2 = () => (
-    <div className="input-section">
-      <h2>Upload Offer Details</h2>
-      <div className="text-input">
+    <div className="input-section" style={{ 
+      backgroundColor: 'black', 
+      padding: '20px', 
+      borderRadius: '8px',
+      display: 'flex',
+      flexDirection: 'column',
+      alignItems: 'center'
+    }}>
+      <h2 style={{ color: 'white', textAlign: 'center' }}>Upload Offer Details</h2>
+      <div className="text-input" style={{ 
+        display: 'flex', 
+        flexDirection: 'column', 
+        alignItems: 'center',
+        width: '100%'
+      }}>
         <textarea
           value={rawText}
           onChange={(e) => setRawText(e.target.value)}
-          placeholder="Enter raw text to extract offer details"
-          disabled={loading}
+          placeholder="Please Enter Offer Details Here"
+          style={{ width: '80%', marginBottom: '20px' }}
         />
         <button 
           onClick={handleTextSubmit}
-          disabled={loading || !rawText.trim()}
-          className={loading ? 'loading' : ''}
+          id='text-submit'
+          style={{ 
+            marginBottom: '20px',
+            width: '200px',
+            display: 'block',
+            margin: '0 auto'
+          }}
+          disabled={loading}
         >
-          {loading ? (
-            <span className="loading-spinner">Processing...</span>
-          ) : (
-            'Extract from Text'
-          )}
+          Extract from Text
         </button>
       </div>
 
-      <div className="file-input">
+      <div className="file-input" style={{ 
+        display: 'flex', 
+        flexDirection: 'column', 
+        alignItems: 'center',
+        width: '100%'
+      }}>
         <input
           type="file"
           accept=".xlsx,.xls,.csv"
           onChange={handleFileChange}
           id="file-upload"
-          disabled={loading}
+          style={{ width: '80%', marginBottom: '20px' }}
         />
-        <label htmlFor="file-upload" className={`file-upload-label ${loading ? 'disabled' : ''}`}>
-          Choose File (Excel/CSV)
+        <label htmlFor="file-upload" className="file-upload-label">
+          Please Upload Offer file here (Excel/CSV)
         </label>
         {file && <div className="file-name">Selected: {file.name}</div>}
         <button 
           onClick={handleFileSubmit}
-          disabled={loading || !file}
-          className={loading ? 'loading' : ''}
+          id="file-submit"
+          style={{ 
+            marginTop: '20px',
+            width: '200px',
+            display: 'block',
+            margin: '0 auto'
+          }}
+          disabled={loading}
         >
-          {loading ? (
-            <span className="loading-spinner">Processing...</span>
-          ) : (
-            'Extract from File'
-          )}
+          Extract from File
         </button>
       </div>
     </div>
@@ -298,14 +330,69 @@ const OfferCreationAI: React.FC = () => {
           </div>
         )}
       </div>
-      <div className="action-buttons">
-        <button onClick={() => setStep(2)} className="secondary-button">
+      <div className="action-buttons" style={{ display: 'flex', flexDirection: 'column', gap: '10px', alignItems: 'center' }}>
+        <div className="file-input" style={{ 
+          display: 'flex', 
+          flexDirection: 'column', 
+          alignItems: 'center',
+          width: '100%',
+          marginBottom: '20px'
+        }}>
+          <input
+            type="file"
+            accept=".xlsx,.xls,.csv"
+            onChange={handleFileChange}
+            id="offer-upload"
+            style={{ width: '80%', marginBottom: '20px' }}
+          />
+          <label htmlFor="offer-upload" className="file-upload-label">
+            Upload Offer Sheet
+          </label>
+          {file && <div className="file-name">Selected: {file.name}</div>}
+        </div>
+        <button onClick={() => setStep(2)} className="secondary-button" style={{ width: '200px' }}>
           Back to Upload
         </button>
-        <button onClick={() => window.location.reload()} className="primary-button">
-          Create New Offer
+        <button onClick={() => setStep(4)} className="primary-button" style={{ width: '200px' }}>
+          Submit Details
         </button>
       </div>
+    </div>
+  );
+
+  const renderStep4 = () => (
+    <div className="success-screen" style={{ 
+      textAlign: 'center', 
+      padding: '40px',
+      backgroundColor: 'black',
+      borderRadius: '8px',
+      color: 'white'
+    }}>
+      <h2 style={{ fontSize: '2em', marginBottom: '20px' }}>Success!</h2>
+      <p style={{ fontSize: '1.2em', marginBottom: '30px' }}>
+        Your offer has been successfully created and submitted.
+      </p>
+      <div style={{ marginBottom: '20px' }}>
+        <svg width="100" height="100" viewBox="0 0 24 24" fill="none" xmlns="http://www.w3.org/2000/svg">
+          <path d="M9 16.17L4.83 12l-1.42 1.41L9 19 21 7l-1.41-1.41L9 16.17z" fill="green"/>
+        </svg>
+        <p>Offer_abchsjjs123400</p>
+      </div>
+      <button 
+        onClick={() => window.location.reload()} 
+        className="primary-button"
+        style={{ 
+          padding: '10px 20px',
+          fontSize: '1.1em',
+          backgroundColor: '#4CAF50',
+          color: 'white',
+          border: 'none',
+          borderRadius: '4px',
+          cursor: 'pointer'
+        }}
+      >
+        Create Another Offer
+      </button>
     </div>
   );
 
@@ -315,6 +402,7 @@ const OfferCreationAI: React.FC = () => {
       {step === 1 && renderStep1()}
       {step === 2 && renderStep2()}
       {step === 3 && renderStep3()}
+      {step === 4 && renderStep4()}
     </div>
   );
 };

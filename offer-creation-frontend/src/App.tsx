@@ -8,7 +8,7 @@ const Home: React.FC = () => {
   const navigate = useNavigate();
 
   return (
-    <Container maxWidth="sm">
+    <Container maxWidth="sm" sx={{ backgroundColor: 'white', minHeight: '100vh', padding: '20px' }}>
       <Box
         sx={{
           display: 'flex',
@@ -19,7 +19,7 @@ const Home: React.FC = () => {
           gap: 2
         }}
       >
-        <Typography variant="h4" component="h1" gutterBottom>
+        <Typography variant="h4" component="h1" gutterBottom sx={{ color: 'black' }}>
           Automatic Offer Creation AI
         </Typography>
         <Button
@@ -27,6 +27,13 @@ const Home: React.FC = () => {
           color="primary"
           size="large"
           onClick={() => navigate('/create-offer')}
+          sx={{ 
+            backgroundColor: 'black',
+            color: 'white',
+            '&:hover': {
+              backgroundColor: '#333333'
+            }
+          }}
         >
           Create Offer with AI
         </Button>
