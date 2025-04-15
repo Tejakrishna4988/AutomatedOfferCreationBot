@@ -50,100 +50,61 @@ public class OfferExtractionService {
     }
 
     public String extractAndGenerateOfferJson(MultipartFile file) throws Exception {
-        String fileContent = readExcelFile(file);
+        // Convert MultipartFile to ByteArrayInputStream
+        ByteArrayInputStream inputStream = new ByteArrayInputStream(file.getBytes());
+        String fileContent = readExcelFile(inputStream);
         logger.info("Excel Content:\n{}", fileContent);
         
         String prompt = "You are an expert at analyzing Excel data and converting it into structured JSON format. " +
-            "Your task is to analyze the following Excel data and convert it into a JSON array where each row becomes a separate JSON object.\n\n" +
+            "Your task is to analyze the following Excel data and extract offer details into a specific JSON format.\n\n" +
             "CRITICAL INSTRUCTIONS:\n" +
-            "1. Process EVERY row in the Excel file\n" +
-            "2. Each row MUST become a separate JSON object\n" +
-            "3. DO NOT combine or merge rows\n" +
-            "4. If a row has data, it MUST be included in the output\n" +
-            "5. The response MUST be an array of JSON objects, one for each row\n" +
-            "6. The number of JSON objects in your response MUST EXACTLY match the number of rows shown in the sheet headers\n" +
-            "7. For Sheet 2, you MUST create exactly 14 separate JSON objects, one for each row\n" +
-            "8. DO NOT skip any rows - process all 14 rows\n" +
-            "9. Each row should be a distinct offer with its own JSON object\n" +
-            "10. The final response MUST contain exactly 14 JSON objects in the array\n" +
-            "11. DO NOT combine any rows - each row must be its own object\n" +
-            "12. If you see multiple rows with data, create a separate JSON object for each one\n" +
-            "13. The response MUST be an array containing ALL rows as separate objects\n" +
-            "14. DO NOT return a single object - it must be an array of objects\n" +
-            "15. Each row in the Excel file must become its own JSON object in the array\n\n" +
-            "Excel Data:\n" + fileContent + "\n\n" +
-            "Required JSON Format (array of objects):\n" +
-            "[\n" +
-            "    {\n" +
-            "        \"sku_code\": \"Product ID/SKU code (e.g., 47867, 47868, etc.)\",\n" +
-            "        \"min_amount\": \"Minimum transaction amount (e.g., 19749)\",\n" +
-            "        \"max_amount\": \"Maximum transaction amount (if specified)\",\n" +
-            "        \"include_states\": \"States where offer is valid (comma-separated)\",\n" +
-            "        \"exclude_states\": \"States where offer is not valid (comma-separated)\",\n" +
-            "        \"bank_name\": \"Bank name (e.g., ICICI)\",\n" +
-            "        \"card_type\": \"Card type (e.g., Credit)\",\n" +
-            "        \"full_swipe_offer_amount_type\": \"Fixed or Percentage\",\n" +
-            "        \"full_swipe_offer_value\": \"Offer value (e.g., 3000)\",\n" +
-            "        \"full_swipe_offer_max_amount\": \"Maximum offer amount (if specified)\",\n" +
-            "        \"emi_offer_amount_type\": \"Fixed or Percentage\",\n" +
-            "        \"emi_offer_value\": \"Offer value (e.g., 3000)\",\n" +
-            "        \"emi_offer_max_amount\": \"Maximum offer amount (if specified)\",\n" +
-            "        \"full_swipe_subvention_type\": \"Fixed or Percentage\",\n" +
-            "        \"full_swipe_bank_subvention_value\": \"Bank's share (e.g., 685)\",\n" +
-            "        \"full_swipe_brand_subvention_value\": \"Brand's share (e.g., 2315)\",\n" +
-            "        \"emi_subvention_type\": \"Fixed or Percentage\",\n" +
-            "        \"emi_bank_subvention_value\": \"Bank's share (e.g., 685)\",\n" +
-            "        \"emi_brand_subvention_value\": \"Brand's share (e.g., 2315)\",\n" +
-            "        \"start_date\": \"Offer start date (YYYY-MM-DD HH:mm:ss)\",\n" +
-            "        \"end_date\": \"Offer end date (YYYY-MM-DD HH:mm:ss)\"\n" +
-            "    }\n" +
-            "]\n\n" +
-            "IMPORTANT:\n" +
-            "1. Return ALL rows as separate JSON objects in an array\n" +
-            "2. Each row MUST be processed independently\n" +
-            "3. DO NOT skip any rows with data\n" +
-            "4. If a field is empty in the Excel, use an empty string (\"\") in the JSON\n" +
-            "5. Ensure dates are in the exact format: YYYY-MM-DD HH:mm:ss\n" +
-            "6. The response MUST be a valid JSON array containing all rows\n" +
-            "7. The number of JSON objects in your response MUST EXACTLY match the number of rows shown in the sheet headers\n" +
-            "8. For Sheet 2, you MUST return exactly 14 JSON objects\n" +
-            "9. DO NOT combine or merge any rows - each row must be a separate object\n" +
-            "10. The final array MUST contain exactly 14 objects, one for each row\n" +
-            "11. DO NOT return a single object - it must be an array\n" +
-            "12. Each row must become its own JSON object\n" +
-            "13. The response must be an array containing ALL rows\n" +
-            "14. DO NOT combine any rows - each row must be separate\n" +
-            "15. The response must be an array of objects, not a single object\n\n" +
-            "Please analyze the Excel data and return a JSON array containing all 14 rows as separate objects.";
+            "1. The response MUST be a single JSON object\n" +
+            "2. All fields must be present in the response\n" +
+            "3. Dates must be in YYYY-MM-DD format\n" +
+            "4. Extract the brand name from the data\n" +
+            "5. Determine if it's an Instant Discount or Additional Cashback\n" +
+            "6. Create a descriptive offer description\n" +
+            "7. Generate an appropriate offer code\n\n" +
+            "Required JSON Format:\n" +
+            "{\n" +
+            "  \"brand\": \"Brand name (e.g., Xiaomi)\",\n" +
+            "  \"offerType\": \"Instant Discount or Additional Cashback\",\n" +
+            "  \"offerStartDate\": \"YYYY-MM-DD\",\n" +
+            "  \"offerEndDate\": \"YYYY-MM-DD\",\n" +
+            "  \"offerDescription\": \"Detailed description of the offer\",\n" +
+            "  \"orgAcquisitionType\": \"Brand led/Direct/Bank Led\",\n" +
+            "  \"velocityCheckType\": \"PERDAY/PERMONTH/None\",\n" +
+            "  \"commonVelocityEnabled\": boolean,\n" +
+            "  \"velocityCheckApplied\": boolean,\n" +
+            "  \"velocityCheckCount\": number,\n" +
+            "  \"priority\": \"High/Medium/Low\",\n" +
+            "  \"offerCode\": \"Generated offer code\"\n" +
+            "}\n\n" +
+            "Excel Data:\n" + fileContent;
 
-        String response = callAIService(prompt);
-        logger.info("AI Response:\n{}", response);
-        
-        // Validate that the response is valid JSON
         try {
+            String response = callAIService(prompt);
+            logger.info("AI Response:\n{}", response);
+            
+            // Validate the response
             ObjectMapper mapper = new ObjectMapper();
             JsonNode node = mapper.readTree(response);
-            if (!node.isArray()) {
-                // If the response is not an array, wrap it in an array
-                ArrayNode arrayNode = mapper.createArrayNode();
-                arrayNode.add(node);
-                response = mapper.writeValueAsString(arrayNode);
+            
+            // Validate required fields
+            String[] requiredFields = {
+                "brand", "offerType", "offerStartDate", "offerEndDate",
+                "offerDescription", "orgAcquisitionType", "velocityCheckType",
+                "commonVelocityEnabled", "velocityCheckApplied", "velocityCheckCount",
+                "priority", "offerCode"
+            };
+            
+            for (String field : requiredFields) {
+                if (!node.has(field)) {
+                    throw new IOException("Missing required field: " + field);
+                }
             }
             
-            // Log the number of JSON objects in the response
-            JsonNode responseNode = mapper.readTree(response);
-            int jsonObjectCount = responseNode.size();
-            logger.info("AI Response contains {} JSON objects", jsonObjectCount);
-            
-            // Create Excel file regardless of the number of objects
-            byte[] excelBytes = createExcelFromJson(response);
-            
-            // Return both the JSON response and the Excel bytes
-            ObjectNode result = mapper.createObjectNode();
-            result.put("json", response);
-            result.put("excel", Base64.getEncoder().encodeToString(excelBytes));
-            
-            return mapper.writeValueAsString(result);
+            return response;
         } catch (Exception e) {
             logger.error("Error processing response: {}", e.getMessage());
             throw new Exception("Error processing response: " + e.getMessage());
@@ -230,27 +191,60 @@ public class OfferExtractionService {
         int columnIndex = 0;
         
         // Create cells for each field
-        createCell(row, columnIndex++, offerNode.get("sku_code").asText());
-        createCell(row, columnIndex++, offerNode.get("min_amount").asText());
-        createCell(row, columnIndex++, offerNode.get("max_amount").asText());
-        createCell(row, columnIndex++, offerNode.get("include_states").asText());
-        createCell(row, columnIndex++, offerNode.get("exclude_states").asText());
-        createCell(row, columnIndex++, offerNode.get("bank_name").asText());
-        createCell(row, columnIndex++, offerNode.get("card_type").asText());
-        createCell(row, columnIndex++, offerNode.get("full_swipe_offer_amount_type").asText());
-        createCell(row, columnIndex++, offerNode.get("full_swipe_offer_value").asText());
-        createCell(row, columnIndex++, offerNode.get("full_swipe_offer_max_amount").asText());
-        createCell(row, columnIndex++, offerNode.get("emi_offer_amount_type").asText());
-        createCell(row, columnIndex++, offerNode.get("emi_offer_value").asText());
-        createCell(row, columnIndex++, offerNode.get("emi_offer_max_amount").asText());
-        createCell(row, columnIndex++, offerNode.get("full_swipe_subvention_type").asText());
-        createCell(row, columnIndex++, offerNode.get("full_swipe_bank_subvention_value").asText());
-        createCell(row, columnIndex++, offerNode.get("full_swipe_brand_subvention_value").asText());
-        createCell(row, columnIndex++, offerNode.get("emi_subvention_type").asText());
-        createCell(row, columnIndex++, offerNode.get("emi_bank_subvention_value").asText());
-        createCell(row, columnIndex++, offerNode.get("emi_brand_subvention_value").asText());
-        createCell(row, columnIndex++, offerNode.get("start_date").asText());
-        createCell(row, columnIndex++, offerNode.get("end_date").asText());
+        createCell(row, columnIndex++, offerNode.get("sku_code"));
+        createCell(row, columnIndex++, offerNode.get("min_amount"));
+        createCell(row, columnIndex++, offerNode.get("max_amount"));
+        createCell(row, columnIndex++, offerNode.get("include_states"));
+        createCell(row, columnIndex++, offerNode.get("exclude_states"));
+        createCell(row, columnIndex++, offerNode.get("bank_name"));
+        createCell(row, columnIndex++, offerNode.get("card_type"));
+        createCell(row, columnIndex++, offerNode.get("full_swipe_offer_amount_type"));
+        createCell(row, columnIndex++, offerNode.get("full_swipe_offer_value"));
+        createCell(row, columnIndex++, offerNode.get("full_swipe_offer_max_amount"));
+        createCell(row, columnIndex++, offerNode.get("emi_offer_amount_type"));
+        createCell(row, columnIndex++, offerNode.get("emi_offer_value"));
+        createCell(row, columnIndex++, offerNode.get("emi_offer_max_amount"));
+        createCell(row, columnIndex++, offerNode.get("full_swipe_subvention_type"));
+        createCell(row, columnIndex++, offerNode.get("full_swipe_bank_subvention_value"));
+        createCell(row, columnIndex++, offerNode.get("full_swipe_brand_subvention_value"));
+        createCell(row, columnIndex++, offerNode.get("emi_subvention_type"));
+        createCell(row, columnIndex++, offerNode.get("emi_bank_subvention_value"));
+        createCell(row, columnIndex++, offerNode.get("emi_brand_subvention_value"));
+        createCell(row, columnIndex++, offerNode.get("start_date"));
+        createCell(row, columnIndex++, offerNode.get("end_date"));
+    }
+
+    private void createCell(Row row, int columnIndex, JsonNode node) {
+        Cell cell = row.createCell(columnIndex);
+        if (node != null && !node.isNull()) {
+            String value = node.asText().trim();
+            // Try to parse as number if it looks like one
+            if (value.matches("-?\\d+(\\.\\d+)?")) {
+                try {
+                    double numValue = Double.parseDouble(value);
+                    cell.setCellValue(numValue);
+                    return;
+                } catch (NumberFormatException e) {
+                    // Not a number, continue with string handling
+                }
+            }
+            // Handle date format
+            if (value.matches("\\d{4}-\\d{2}-\\d{2}.*")) {
+                try {
+                    cell.setCellValue(value);
+                    CellStyle dateStyle = row.getSheet().getWorkbook().createCellStyle();
+                    dateStyle.setDataFormat((short)14); // mm/dd/yyyy
+                    cell.setCellStyle(dateStyle);
+                    return;
+                } catch (Exception e) {
+                    // Not a valid date, continue with string handling
+                }
+            }
+            // Default to string value
+            cell.setCellValue(value);
+        } else {
+            cell.setCellValue("");
+        }
     }
 
     private void createCell(Row row, int columnIndex, String value) {
@@ -342,9 +336,9 @@ public class OfferExtractionService {
         return csvText.toString();
     }
 
-    private String readExcelFile(MultipartFile file) throws IOException {
+    private String readExcelFile(ByteArrayInputStream inputStream) throws IOException {
         StringBuilder excelText = new StringBuilder();
-        try (Workbook workbook = new XSSFWorkbook(file.getInputStream())) {
+        try (Workbook workbook = new XSSFWorkbook(inputStream)) {
             for (int sheetIndex = 0; sheetIndex < workbook.getNumberOfSheets(); sheetIndex++) {
                 Sheet sheet = workbook.getSheetAt(sheetIndex);
                 int rowCount = sheet.getLastRowNum() + 1; // +1 because getLastRowNum is 0-based
@@ -398,73 +392,468 @@ public class OfferExtractionService {
         return excelText.toString();
     }
 
-    public String extractFromRawText(String rawText) throws IOException {
-        try {
-            // Create a prompt for the AI to extract offer information
-            String prompt = String.format(
-                "Extract offer information from the following text and format it as JSON. " +
-                "The text contains multiple offers with details about models, prices, and bank offers. " +
-                "Extract all offers and format them according to the following structure:\n\n" +
+    public String extractFromRawText(String rawText, boolean isExcelFormat) throws IOException {
+        logger.info("Extracting JSON from raw text: {}", rawText);
+        
+        String prompt;
+        if (isExcelFormat) {
+            prompt = "You are a business assistant AI. Your task is to extract structured offer data from raw text. " +
+                "The text may contain information about multiple offers that need to be processed individually.\n\n" +
+                "### INSTRUCTIONS:\n" +
+                "1. Process **every distinct offer** mentioned in the text.\n" +
+                "2. Each offer should be mapped to **one JSON object**.\n" +
+                "3. Your final output must be a **JSON array** of multiple offer objects.\n" +
+                "4. Do **not** merge or combine information across different offers.\n" +
+                "5. If the text describes 4 offers, your output must have 4 JSON objects.\n" +
+                "6. **DO NOT OMIT ANY OFFER** – include all, even if some fields are missing.\n" +
+                "7. If a value is missing, return it as an **empty string** in the JSON.\n\n" +
+                "### SPECIAL CLARIFICATION FOR `sku_code`:\n" +
+                "- If the text mentions specific products, combine product name, variant, and Product ID like:\n" +
+                "  `\"Xiaomi Pad 6|6GB+128GB|47867\"` or `\"Redmi Pad|4GB+128GB|43553\"`\n" +
+                "- Use this combined value as the **`sku_code`** field.\n" +
+                "  - If an offer applies to multiple SKUs, list them as comma-separated.\n" +
+                "  - If the offer applies to all products, use `\"All\"`.\n" +
+                "  - If no SKU info is present, use `\"NA\"`.\n\n" +
+                "### YOUR OUTPUT MUST FOLLOW THIS EXACT JSON STRUCTURE:\n" +
+                "[\n" +
+                "  {\n" +
+                "    \"sku_code\": \"\",\n" +
+                "    \"min_amount\": \"\",\n" +
+                "    \"max_amount\": \"\",\n" +
+                "    \"include_states\": \"\",\n" +
+                "    \"exclude_states\": \"\",\n" +
+                "    \"bank_name\": \"\",\n" +
+                "    \"card_type\": \"\",\n" +
+                "    \"full_swipe_offer_amount_type\": \"\",\n" +
+                "    \"full_swipe_offer_value\": \"\",\n" +
+                "    \"full_swipe_offer_max_amount\": \"\",\n" +
+                "    \"emi_offer_amount_type\": \"\",\n" +
+                "    \"emi_offer_value\": \"\",\n" +
+                "    \"emi_offer_max_amount\": \"\",\n" +
+                "    \"full_swipe_subvention_type\": \"\",\n" +
+                "    \"full_swipe_bank_subvention_value\": \"\",\n" +
+                "    \"full_swipe_brand_subvention_value\": \"\",\n" +
+                "    \"emi_subvention_type\": \"\",\n" +
+                "    \"emi_bank_subvention_value\": \"\",\n" +
+                "    \"emi_brand_subvention_value\": \"\",\n" +
+                "    \"start_date\": \"\",\n" +
+                "    \"end_date\": \"\"\n" +
+                "  }\n" +
+                "]\n\n" +
+                "### ADDITIONAL INSTRUCTIONS:\n" +
+                "1. For dates, use format: YYYY-MM-DD HH:mm:ss\n" +
+                "2. For amount fields, use numbers without currency symbols\n" +
+                "3. For percentage fields, use the word \"Percentage\"\n" +
+                "4. For fixed amount fields, use the word \"Fixed\"\n" +
+                "5. For card type, use \"Credit\", \"Debit\", or \"Both\"\n" +
+                "6. For bank name, use the actual bank name or \"All\"\n\n" +
+                "Text Data:\n" + rawText + "\n\n" +
+                "Please analyze the text and return a JSON array of offer objects with the exact structure shown above.";
+        } else {
+            prompt = "You are an expert at analyzing text and converting it into structured JSON format. " +
+                "Your task is to analyze the following text and convert it into a JSON object with the following structure:\n\n" +
                 "{\n" +
-                "  \"offers\": [\n" +
-                "    {\n" +
-                "      \"sku_code\": \"model code\",\n" +
-                "      \"min_amount\": \"minimum amount\",\n" +
-                "      \"max_amount\": \"maximum amount\",\n" +
-                "      \"include_states\": \"\",\n" +
-                "      \"exclude_states\": \"\",\n" +
-                "      \"bank_name\": \"bank name\",\n" +
-                "      \"card_type\": \"Credit/Debit/Both\",\n" +
-                "      \"full_swipe_offer_amount_type\": \"Fixed/Percentage\",\n" +
-                "      \"full_swipe_offer_value\": \"offer value\",\n" +
-                "      \"full_swipe_offer_max_amount\": \"maximum amount\",\n" +
-                "      \"emi_offer_amount_type\": \"Fixed/Percentage\",\n" +
-                "      \"emi_offer_value\": \"offer value\",\n" +
-                "      \"emi_offer_max_amount\": \"maximum amount\",\n" +
-                "      \"full_swipe_subvention_type\": \"Fixed/Percentage\",\n" +
-                "      \"full_swipe_bank_subvention_value\": \"bank subvention value\",\n" +
-                "      \"full_swipe_brand_subvention_value\": \"brand subvention value\",\n" +
-                "      \"emi_subvention_type\": \"Fixed/Percentage\",\n" +
-                "      \"emi_bank_subvention_value\": \"bank subvention value\",\n" +
-                "      \"emi_brand_subvention_value\": \"brand subvention value\",\n" +
-                "      \"start_date\": \"2025-04-01 00:00:00\",\n" +
-                "      \"end_date\": \"2025-04-30 23:59:59\"\n" +
-                "    }\n" +
-                "  ]\n" +
+                "  \"brand\": \"Brand name (e.g., OPPO)\",\n" +
+                "  \"offerType\": \"Additional Cashback\",\n" +
+                "  \"offerStartDate\": \"YYYY-MM-DD\",\n" +
+                "  \"offerEndDate\": \"YYYY-MM-DD\",\n" +
+                "  \"offerDescription\": \"Detailed description of the offer\",\n" +
+                "  \"orgAcquisitionType\": \"Direct\",\n" +
+                "  \"velocityCheckType\": \"PERDAY\",\n" +
+                "  \"commonVelocityEnabled\": true,\n" +
+                "  \"velocityCheckApplied\": \"Per Transaction\",\n" +
+                "  \"velocityCheckCount\": 1,\n" +
+                "  \"priority\": 1,\n" +
+                "  \"offerCode\": \"Generated offer code (e.g., BRAND_YYYY-MM-DD_YYYY-MM-DD)\"\n" +
                 "}\n\n" +
-                "Text to analyze:\n%s", rawText);
+                "CRITICAL INSTRUCTIONS:\n" +
+                "1. The response MUST be a single JSON object\n" +
+                "2. All fields must be present in the response\n" +
+                "3. Dates must be in YYYY-MM-DD format\n" +
+                "4. offerType should always be \"Additional Cashback\"\n" +
+                "5. orgAcquisitionType should always be \"Direct\"\n" +
+                "6. velocityCheckType should always be \"PERDAY\"\n" +
+                "7. commonVelocityEnabled should always be true\n" +
+                "8. velocityCheckApplied should always be \"Per Transaction\"\n" +
+                "9. velocityCheckCount should always be 1\n" +
+                "10. priority should always be 1\n" +
+                "11. offerCode should be generated based on brand and dates\n\n" +
+                "Text Data:\n" + rawText + "\n\n" +
+                "Please analyze the text and return a JSON object with the exact structure shown above.";
+        }
 
-            // Call the AI service to extract information
-            String jsonResponse = callAIService(prompt);
+        try {
+            String response = callAIService(prompt);
+            logger.info("AI Response:\n{}", response);
             
-            // Validate the JSON response
+            // Validate that the response is valid JSON
             ObjectMapper mapper = new ObjectMapper();
-            JsonNode rootNode = mapper.readTree(jsonResponse);
+            JsonNode node = mapper.readTree(response);
             
-            if (!rootNode.has("offers") || !rootNode.get("offers").isArray()) {
-                throw new IOException("Invalid JSON response format");
+            if (isExcelFormat) {
+                if (!node.isArray()) {
+                    // If the response is not an array, wrap it in an array
+                    ArrayNode arrayNode = mapper.createArrayNode();
+                    arrayNode.add(node);
+                    response = mapper.writeValueAsString(arrayNode);
+                    node = mapper.readTree(response);
+                }
+            } else {
+                if (!node.isObject()) {
+                    throw new IOException("Invalid JSON response format: Expected an object");
+                }
             }
             
-            return jsonResponse;
+            // Validate required fields based on format
+            String[] requiredFields;
+            if (isExcelFormat) {
+                requiredFields = new String[]{
+                    "sku_code", "min_amount", "max_amount", "include_states", "exclude_states",
+                    "bank_name", "card_type", "full_swipe_offer_amount_type", "full_swipe_offer_value",
+                    "full_swipe_offer_max_amount", "emi_offer_amount_type", "emi_offer_value",
+                    "emi_offer_max_amount", "full_swipe_subvention_type", "full_swipe_bank_subvention_value",
+                    "full_swipe_brand_subvention_value", "emi_subvention_type", "emi_bank_subvention_value",
+                    "emi_brand_subvention_value", "start_date", "end_date"
+                };
+                
+                // Validate each object in the array
+                for (JsonNode offerNode : node) {
+                    for (String field : requiredFields) {
+                        if (!offerNode.has(field)) {
+                            throw new IOException("Missing required field: " + field);
+                        }
+                    }
+                }
+            } else {
+                requiredFields = new String[]{
+                    "brand", "offerType", "offerStartDate", "offerEndDate",
+                    "offerDescription", "orgAcquisitionType", "velocityCheckType",
+                    "commonVelocityEnabled", "velocityCheckApplied", "velocityCheckCount",
+                    "priority", "offerCode"
+                };
+                
+                for (String field : requiredFields) {
+                    if (!node.has(field)) {
+                        throw new IOException("Missing required field: " + field);
+                    }
+                }
+            }
+            
+            return response;
         } catch (Exception e) {
-            logger.error("Error extracting from raw text: ", e);
+            logger.error("Error processing text: {}", e.getMessage());
             throw new IOException("Error processing text: " + e.getMessage());
         }
     }
 
     public byte[] generateExcelFromJson(String jsonResponse) throws IOException {
+        logger.info("Generating Excel from JSON response");
+        logger.info("Raw JSON response: {}", jsonResponse);
+        
+        try (Workbook workbook = new XSSFWorkbook()) {
+            Sheet sheet = workbook.createSheet("Offers");
+            
+            // Parse JSON response
+            ObjectMapper mapper = new ObjectMapper();
+            JsonNode rootNode = mapper.readTree(jsonResponse);
+            logger.info("Parsed JSON structure: {}", rootNode.toString());
+            
+            if (!rootNode.isArray()) {
+                logger.info("Converting single object to array");
+                ArrayNode arrayNode = mapper.createArrayNode();
+                arrayNode.add(rootNode);
+                rootNode = arrayNode;
+            }
+            
+            logger.info("Number of offers to process: {}", rootNode.size());
+            
+            // Create header row
+            Row headerRow = sheet.createRow(0);
+            String[] headers = {
+                "Sku Code (All/Specific SKU/NA)*",
+                "Min Amount*",
+                "Max Amount",
+                "Include States",
+                "Exclude States",
+                "Bank Name (All/Specific Bank/Few Banks)*",
+                "Card Type (Credit/Debit/Both)",
+                "Full Swipe Offer Amount Type (Fixed/Percentage)*",
+                "Full Swipe Offer Value",
+                "Full Swipe Offer Max Amount (Percentage Type Case)",
+                "EMI Offer Amount Type (Fixed/Percentage)*",
+                "EMI Offer Value",
+                "EMI Offer Max Amount (Percentage Type Case)",
+                "Full Swipe Subvention Type (Fixed/Percentage)",
+                "Full Swipe Bank Subvention Value",
+                "Full Swipe Brand Subvention Value",
+                "EMI Subvention Type (Fixed/Percentage)",
+                "EMI Bank Subvention Value",
+                "EMI Brand Subvention Value",
+                "Start Date(yyyy-MM-dd HH:mm:sss)",
+                "End Date(yyyy-MM-dd HH:mm:sss)"
+            };
+            
+            // Create header style
+            CellStyle headerStyle = workbook.createCellStyle();
+            Font headerFont = workbook.createFont();
+            headerFont.setBold(true);
+            headerStyle.setFont(headerFont);
+            headerStyle.setFillForegroundColor(IndexedColors.GREY_25_PERCENT.getIndex());
+            headerStyle.setFillPattern(FillPatternType.SOLID_FOREGROUND);
+            headerStyle.setAlignment(HorizontalAlignment.CENTER);
+            headerStyle.setVerticalAlignment(VerticalAlignment.CENTER);
+            headerStyle.setBorderBottom(BorderStyle.THIN);
+            headerStyle.setBorderTop(BorderStyle.THIN);
+            headerStyle.setBorderLeft(BorderStyle.THIN);
+            headerStyle.setBorderRight(BorderStyle.THIN);
+            headerStyle.setWrapText(true);
+            
+            // Populate header row
+            for (int i = 0; i < headers.length; i++) {
+                Cell cell = headerRow.createCell(i);
+                cell.setCellValue(headers[i]);
+                cell.setCellStyle(headerStyle);
+                sheet.setColumnWidth(i, 256 * 30); // 30 characters width
+            }
+            headerRow.setHeight((short) 900); // 45 points height
+            
+            // Handle both single object and array cases
+            if (rootNode.isArray()) {
+                // Process each object in the array
+                int rowNum = 1;
+                for (JsonNode offerNode : rootNode) {
+                    Row dataRow = sheet.createRow(rowNum++);
+                    int colNum = 0;
+                    
+                    // Map the JSON fields to Excel columns
+                    createCell(dataRow, colNum++, offerNode.get("sku_code"));
+                    createCell(dataRow, colNum++, offerNode.get("min_amount"));
+                    createCell(dataRow, colNum++, offerNode.get("max_amount"));
+                    createCell(dataRow, colNum++, offerNode.get("include_states"));
+                    createCell(dataRow, colNum++, offerNode.get("exclude_states"));
+                    createCell(dataRow, colNum++, offerNode.get("bank_name"));
+                    createCell(dataRow, colNum++, offerNode.get("card_type"));
+                    createCell(dataRow, colNum++, offerNode.get("full_swipe_offer_amount_type"));
+                    createCell(dataRow, colNum++, offerNode.get("full_swipe_offer_value"));
+                    createCell(dataRow, colNum++, offerNode.get("full_swipe_offer_max_amount"));
+                    createCell(dataRow, colNum++, offerNode.get("emi_offer_amount_type"));
+                    createCell(dataRow, colNum++, offerNode.get("emi_offer_value"));
+                    createCell(dataRow, colNum++, offerNode.get("emi_offer_max_amount"));
+                    createCell(dataRow, colNum++, offerNode.get("full_swipe_subvention_type"));
+                    createCell(dataRow, colNum++, offerNode.get("full_swipe_bank_subvention_value"));
+                    createCell(dataRow, colNum++, offerNode.get("full_swipe_brand_subvention_value"));
+                    createCell(dataRow, colNum++, offerNode.get("emi_subvention_type"));
+                    createCell(dataRow, colNum++, offerNode.get("emi_bank_subvention_value"));
+                    createCell(dataRow, colNum++, offerNode.get("emi_brand_subvention_value"));
+                    createCell(dataRow, colNum++, offerNode.get("start_date"));
+                    createCell(dataRow, colNum++, offerNode.get("end_date"));
+                }
+            } else {
+                // Handle single object case
+                Row dataRow = sheet.createRow(1);
+                int colNum = 0;
+                
+                // Map the JSON fields to Excel columns
+                createCell(dataRow, colNum++, rootNode.get("sku_code"));
+                createCell(dataRow, colNum++, rootNode.get("min_amount"));
+                createCell(dataRow, colNum++, rootNode.get("max_amount"));
+                createCell(dataRow, colNum++, rootNode.get("include_states"));
+                createCell(dataRow, colNum++, rootNode.get("exclude_states"));
+                createCell(dataRow, colNum++, rootNode.get("bank_name"));
+                createCell(dataRow, colNum++, rootNode.get("card_type"));
+                createCell(dataRow, colNum++, rootNode.get("full_swipe_offer_amount_type"));
+                createCell(dataRow, colNum++, rootNode.get("full_swipe_offer_value"));
+                createCell(dataRow, colNum++, rootNode.get("full_swipe_offer_max_amount"));
+                createCell(dataRow, colNum++, rootNode.get("emi_offer_amount_type"));
+                createCell(dataRow, colNum++, rootNode.get("emi_offer_value"));
+                createCell(dataRow, colNum++, rootNode.get("emi_offer_max_amount"));
+                createCell(dataRow, colNum++, rootNode.get("full_swipe_subvention_type"));
+                createCell(dataRow, colNum++, rootNode.get("full_swipe_bank_subvention_value"));
+                createCell(dataRow, colNum++, rootNode.get("full_swipe_brand_subvention_value"));
+                createCell(dataRow, colNum++, rootNode.get("emi_subvention_type"));
+                createCell(dataRow, colNum++, rootNode.get("emi_bank_subvention_value"));
+                createCell(dataRow, colNum++, rootNode.get("emi_brand_subvention_value"));
+                createCell(dataRow, colNum++, rootNode.get("start_date"));
+                createCell(dataRow, colNum++, rootNode.get("end_date"));
+            }
+            
+            // Auto-size columns
+            for (int i = 0; i < headers.length; i++) {
+                sheet.autoSizeColumn(i);
+            }
+            
+            // Write to byte array
+            ByteArrayOutputStream outputStream = new ByteArrayOutputStream();
+            workbook.write(outputStream);
+            return outputStream.toByteArray();
+        } catch (Exception e) {
+            logger.error("Error generating Excel from JSON: ", e);
+            throw new IOException("Error generating Excel: " + e.getMessage());
+        }
+    }
+
+    private String extractBankNames(String offerDescription) {
+        // Extract bank names from the offer description
+        String[] banks = {"SBI Cards", "HDFC Bank", "Axis Bank", "BOB Cards", 
+                         "IDFC First Bank", "Federal Bank", "DBS Cards"};
+        List<String> foundBanks = new ArrayList<>();
+        
+        for (String bank : banks) {
+            if (offerDescription.contains(bank)) {
+                foundBanks.add(bank);
+            }
+        }
+        
+        if (foundBanks.isEmpty()) {
+            return "All";
+        } else if (foundBanks.size() == 1) {
+            return foundBanks.get(0);
+        } else {
+            return String.join(", ", foundBanks);
+        }
+    }
+
+    private String callAIService(String prompt) throws Exception {
+        OpenAIClient client = getClient();
+        
+        List<ChatRequestMessage> chatMessages = new ArrayList<>();
+        chatMessages.add(new ChatRequestUserMessage(prompt));
+
+        ChatCompletionsOptions options = new ChatCompletionsOptions(chatMessages)
+                .setTemperature(0.3);
+
+        ChatCompletions chatCompletions = client.getChatCompletions(deploymentId, options);
+        
+        if (chatCompletions.getChoices() != null && !chatCompletions.getChoices().isEmpty()) {
+            String response = chatCompletions.getChoices().get(0).getMessage().getContent();
+            // Clean the response to ensure it's valid JSON
+            return cleanJsonResponse(response);
+        }
+        
+        throw new Exception("No response from Azure OpenAI");
+    }
+
+    private String cleanJsonResponse(String response) throws IOException {
         try {
-            // Parse the JSON response
+            // First try to parse the response directly
+            ObjectMapper mapper = new ObjectMapper();
+            mapper.readTree(response);
+            return response;
+        } catch (Exception e) {
+            // If direct parsing fails, try to extract JSON from the response
+            logger.warn("Initial JSON parsing failed, attempting to extract JSON from response");
+            logger.info("Raw response before cleaning: {}", response);
+            
+            // Look for JSON-like content in the response
+            int startIndex = response.indexOf("[");
+            int endIndex = response.lastIndexOf("]");
+            
+            if (startIndex == -1 || endIndex == -1) {
+                startIndex = response.indexOf("{");
+                endIndex = response.lastIndexOf("}");
+            }
+            
+            if (startIndex != -1 && endIndex != -1 && startIndex < endIndex) {
+                String potentialJson = response.substring(startIndex, endIndex + 1);
+                try {
+                    // Validate the extracted content
+                    ObjectMapper mapper = new ObjectMapper();
+                    mapper.readTree(potentialJson);
+                    logger.info("Successfully extracted and validated JSON: {}", potentialJson);
+                    return potentialJson;
+                } catch (Exception ex) {
+                    logger.error("Failed to extract valid JSON from response: {}", ex.getMessage());
+                    throw new IOException("Could not extract valid JSON from AI response");
+                }
+            }
+            
+            logger.error("No valid JSON found in response");
+            throw new IOException("No valid JSON found in AI response");
+        }
+    }
+
+    public byte[] processExcelFile(byte[] fileBytes) throws IOException {
+        logger.info("Starting Excel file processing");
+        try {
+            // Validate file content
+            if (fileBytes == null || fileBytes.length == 0) {
+                throw new IllegalArgumentException("File is empty");
+            }
+
+            // Read Excel content
+            String excelContent = readExcelFile(new ByteArrayInputStream(fileBytes));
+            logger.info("Excel Content (first 1000 chars):\n{}", excelContent.substring(0, Math.min(1000, excelContent.length())));
+
+            // Create AI prompt
+            String prompt = "You are a business assistant AI. Your task is to extract structured offer data from a product offer sheet provided in Excel format. Each row in the Excel sheet represents a distinct offer entry and must be processed individually.\n\n" +
+                "### INSTRUCTIONS:\n" +
+                "1. Process **every row** in every sheet.\n" +
+                "2. Each row should be mapped to **one JSON object**.\n" +
+                "3. Your final output must be a **JSON array** of multiple offer objects.\n" +
+                "4. Do **not** merge or combine information across rows.\n" +
+                "5. If a sheet has 4 rows, your output must have 4 JSON objects.\n" +
+                "6. **DO NOT OMIT ANY ROW** – include all, even if some fields are missing.\n" +
+                "7. If a value is missing, return it as an **empty string** in the JSON.\n\n" +
+                "### SPECIAL CLARIFICATION FOR `sku_code`:\n" +
+                "- Each row contains the product name, variant, and Product ID. Combine these to form the SKU like:\n" +
+                "  `\"Xiaomi Pad 6|6GB+128GB|47867\"` or `\"Redmi Pad|4GB+128GB|43553\"`\n" +
+                "- Use this combined value as the **`sku_code`** field.\n" +
+                "- If a row applies to multiple SKUs, list them as comma-separated.\n" +
+                "- If the offer applies to all SKUs, use `\"All\"`.\n" +
+                "- If no SKU info is present, use `\"NA\"`.\n\n" +
+                "### YOUR OUTPUT MUST FOLLOW THIS EXACT JSON STRUCTURE:\n" +
+                "[\n" +
+                "  {\n" +
+                "    \"sku_code\": \"\",\n" +
+                "    \"min_amount\": \"\",\n" +
+                "    \"max_amount\": \"\",\n" +
+                "    \"include_states\": \"\",\n" +
+                "    \"exclude_states\": \"\",\n" +
+                "    \"bank_name\": \"\",\n" +
+                "    \"card_type\": \"\",\n" +
+                "    \"full_swipe_offer_amount_type\": \"\",\n" +
+                "    \"full_swipe_offer_value\": \"\",\n" +
+                "    \"full_swipe_offer_max_amount\": \"\",\n" +
+                "    \"emi_offer_amount_type\": \"\",\n" +
+                "    \"emi_offer_value\": \"\",\n" +
+                "    \"emi_offer_max_amount\": \"\",\n" +
+                "    \"full_swipe_subvention_type\": \"\",\n" +
+                "    \"full_swipe_bank_subvention_value\": \"\",\n" +
+                "    \"full_swipe_brand_subvention_value\": \"\",\n" +
+                "    \"emi_subvention_type\": \"\",\n" +
+                "    \"emi_bank_subvention_value\": \"\",\n" +
+                "    \"emi_brand_subvention_value\": \"\",\n" +
+                "    \"start_date\": \"\",\n" +
+                "    \"end_date\": \"\"\n" +
+                "  }\n" +
+                "]\n\n" +
+                "### ADDITIONAL INSTRUCTIONS:\n" +
+                "1. For dates, use format: YYYY-MM-DD HH:mm:ss\n" +
+                "2. For amount fields, use numbers without currency symbols\n" +
+                "3. For percentage fields, use the word \"Percentage\"\n" +
+                "4. For fixed amount fields, use the word \"Fixed\"\n" +
+                "5. For card type, use \"Credit\", \"Debit\", or \"Both\"\n" +
+                "6. For bank name, use the actual bank name or \"All\"\n\n" +
+                "Excel Data:\n" + excelContent;
+
+            // Call AI service to process the Excel content
+            String jsonResponse = callAIService(prompt);
+            logger.info("AI Response:\n{}", jsonResponse);
+
+            // Parse the AI response
             ObjectMapper mapper = new ObjectMapper();
             JsonNode rootNode = mapper.readTree(jsonResponse);
             
-            if (!rootNode.has("offers") || !rootNode.get("offers").isArray()) {
-                throw new IOException("Invalid JSON response format");
+            if (!rootNode.isArray()) {
+                logger.info("Converting single object to array");
+                ArrayNode arrayNode = mapper.createArrayNode();
+                arrayNode.add(rootNode);
+                rootNode = arrayNode;
             }
             
-            // Create Excel workbook
+            // Create Excel workbook with the processed data
             try (Workbook workbook = new XSSFWorkbook()) {
-                Sheet sheet = workbook.createSheet("Extracted Offers");
+                Sheet sheet = workbook.createSheet("Offer Details");
                 
                 // Create header style
                 CellStyle headerStyle = workbook.createCellStyle();
@@ -480,8 +869,7 @@ public class OfferExtractionService {
                 headerStyle.setBorderLeft(BorderStyle.THIN);
                 headerStyle.setBorderRight(BorderStyle.THIN);
                 headerStyle.setWrapText(true);
-
-                // Define headers
+                
                 String[] headers = {
                     "Sku Code (All/Specific SKU/NA)*",
                     "Min Amount*",
@@ -512,15 +900,38 @@ public class OfferExtractionService {
                     Cell cell = headerRow.createCell(i);
                     cell.setCellValue(headers[i]);
                     cell.setCellStyle(headerStyle);
-                    sheet.setColumnWidth(i, 256 * 30); // 30 characters width
+                    sheet.setColumnWidth(i, 256 * 30);
                 }
-                headerRow.setHeight((short) 900); // 45 points height
+                headerRow.setHeight((short) 900);
 
-                // Populate data rows
+                // Process each object from AI response
                 int rowNum = 1;
-                for (JsonNode offer : rootNode.get("offers")) {
-                    Row row = sheet.createRow(rowNum++);
-                    populateRowFromJson(row, offer);
+                for (JsonNode offerNode : rootNode) {
+                    Row dataRow = sheet.createRow(rowNum++);
+                    int colNum = 0;
+                    
+                    // Map JSON fields to Excel columns
+                    createCell(dataRow, colNum++, offerNode.get("sku_code"));
+                    createCell(dataRow, colNum++, offerNode.get("min_amount"));
+                    createCell(dataRow, colNum++, offerNode.get("max_amount"));
+                    createCell(dataRow, colNum++, offerNode.get("include_states"));
+                    createCell(dataRow, colNum++, offerNode.get("exclude_states"));
+                    createCell(dataRow, colNum++, offerNode.get("bank_name"));
+                    createCell(dataRow, colNum++, offerNode.get("card_type"));
+                    createCell(dataRow, colNum++, offerNode.get("full_swipe_offer_amount_type"));
+                    createCell(dataRow, colNum++, offerNode.get("full_swipe_offer_value"));
+                    createCell(dataRow, colNum++, offerNode.get("full_swipe_offer_max_amount"));
+                    createCell(dataRow, colNum++, offerNode.get("emi_offer_amount_type"));
+                    createCell(dataRow, colNum++, offerNode.get("emi_offer_value"));
+                    createCell(dataRow, colNum++, offerNode.get("emi_offer_max_amount"));
+                    createCell(dataRow, colNum++, offerNode.get("full_swipe_subvention_type"));
+                    createCell(dataRow, colNum++, offerNode.get("full_swipe_bank_subvention_value"));
+                    createCell(dataRow, colNum++, offerNode.get("full_swipe_brand_subvention_value"));
+                    createCell(dataRow, colNum++, offerNode.get("emi_subvention_type"));
+                    createCell(dataRow, colNum++, offerNode.get("emi_bank_subvention_value"));
+                    createCell(dataRow, colNum++, offerNode.get("emi_brand_subvention_value"));
+                    createCell(dataRow, colNum++, offerNode.get("start_date"));
+                    createCell(dataRow, colNum++, offerNode.get("end_date"));
                 }
 
                 // Auto-size columns
@@ -531,198 +942,221 @@ public class OfferExtractionService {
                 // Write to byte array
                 ByteArrayOutputStream outputStream = new ByteArrayOutputStream();
                 workbook.write(outputStream);
-                return outputStream.toByteArray();
+                byte[] result = outputStream.toByteArray();
+                logger.info("Generated Excel file size: {} bytes", result.length);
+                return result;
             }
         } catch (Exception e) {
-            logger.error("Error generating Excel from JSON: ", e);
-            throw new IOException("Error generating Excel: " + e.getMessage());
-        }
-    }
-
-    private String callAIService(String prompt) throws Exception {
-        OpenAIClient client = getClient();
-        
-        List<ChatRequestMessage> chatMessages = new ArrayList<>();
-        chatMessages.add(new ChatRequestUserMessage(prompt));
-
-        ChatCompletionsOptions options = new ChatCompletionsOptions(chatMessages)
-                .setTemperature(0.3);
-
-        ChatCompletions chatCompletions = client.getChatCompletions(deploymentId, options);
-        
-        if (chatCompletions.getChoices() != null && !chatCompletions.getChoices().isEmpty()) {
-            String response = chatCompletions.getChoices().get(0).getMessage().getContent();
-            // Clean the response to ensure it's valid JSON
-            return cleanJsonResponse(response);
-        }
-        
-        throw new Exception("No response from Azure OpenAI");
-    }
-
-    private String cleanJsonResponse(String response) {
-        // Remove any markdown formatting
-        response = response.replaceAll("```json\\s*", "").replaceAll("```\\s*", "");
-        
-        // Remove trailing commas
-        response = response.replaceAll(",\\s*([}\\]])", "$1");
-        
-        // Remove any comments
-        response = response.replaceAll("//.*$", "").replaceAll("/\\*.*?\\*/", "");
-        
-        // Find the first '{' and last '}'
-        int start = response.indexOf("{");
-        int end = response.lastIndexOf("}");
-        
-        if (start != -1 && end != -1 && end > start) {
-            response = response.substring(start, end + 1);
-        }
-        
-        // Validate JSON structure
-        try {
-            ObjectMapper mapper = new ObjectMapper();
-            // Enable ALLOW_COMMENTS feature
-            mapper.configure(com.fasterxml.jackson.core.JsonParser.Feature.ALLOW_COMMENTS, true);
-            JsonNode node = mapper.readTree(response);
-            return mapper.writeValueAsString(node); // Ensure proper JSON formatting
-        } catch (Exception e) {
-            logger.error("Error cleaning JSON response: {}", e.getMessage());
-            throw new IllegalArgumentException("Invalid JSON structure in response: " + e.getMessage());
-        }
-    }
-
-    public byte[] processExcelFile(byte[] fileBytes) throws IOException {
-        try (Workbook inputWorkbook = new XSSFWorkbook(new ByteArrayInputStream(fileBytes));
-             Workbook outputWorkbook = new XSSFWorkbook()) {
-            
-            Sheet inputSheet = inputWorkbook.getSheetAt(0);
-            Sheet outputSheet = outputWorkbook.createSheet("Offer Details");
-
-            // Create headers with exact field names
-            String[] headers = {
-                "Sku Code (All/Specific SKU/NA)*",
-                "Min Amount*",
-                "Max Amount",
-                "Include States",
-                "Exclude States",
-                "Bank Name (All/Specific Bank/Few Banks)*",
-                "Card Type (Credit/Debit/Both)",
-                "Full Swipe Offer Amount Type (Fixed/Percentage)*",
-                "Full Swipe Offer Value",
-                "Full Swipe Offer Max Amount (Percentage Type Case)",
-                "EMI Offer Amount Type (Fixed/Percentage)*",
-                "EMI Offer Value",
-                "EMI Offer Max Amount (Percentage Type Case)",
-                "Full Swipe Subvention Type (Fixed/Percentage)",
-                "Full Swipe Bank Subvention Value",
-                "Full Swipe Brand Subvention Value",
-                "EMI Subvention Type (Fixed/Percentage)",
-                "EMI Bank Subvention Value",
-                "EMI Brand Subvention Value",
-                "Start Date(yyyy-MM-dd HH:mm:sss)",
-                "End Date(yyyy-MM-dd HH:mm:sss)"
-            };
-
-            // Create cell style for headers
-            CellStyle headerStyle = outputWorkbook.createCellStyle();
-            Font headerFont = outputWorkbook.createFont();
-            headerFont.setBold(true);
-            headerStyle.setFont(headerFont);
-            headerStyle.setFillForegroundColor(IndexedColors.GREY_25_PERCENT.getIndex());
-            headerStyle.setFillPattern(FillPatternType.SOLID_FOREGROUND);
-            
-            // Set text rotation to 0 (horizontal)
-            headerStyle.setRotation((short) 0);
-            
-            // Set text alignment
-            headerStyle.setAlignment(HorizontalAlignment.CENTER);
-            headerStyle.setVerticalAlignment(VerticalAlignment.CENTER);
-            
-            // Set border
-            headerStyle.setBorderBottom(BorderStyle.THIN);
-            headerStyle.setBorderTop(BorderStyle.THIN);
-            headerStyle.setBorderLeft(BorderStyle.THIN);
-            headerStyle.setBorderRight(BorderStyle.THIN);
-            
-            // Set word wrap
-            headerStyle.setWrapText(true);
-
-            // Write headers
-            Row headerRow = outputSheet.createRow(0);
-            for (int i = 0; i < headers.length; i++) {
-                Cell cell = headerRow.createCell(i);
-                cell.setCellValue(headers[i]);
-                cell.setCellStyle(headerStyle);
-                // Set column width to accommodate the text
-                outputSheet.setColumnWidth(i, 256 * 30); // 30 characters width for better readability
-            }
-
-            // Set row height for better readability of wrapped text
-            headerRow.setHeight((short) 900); // Approximately 45 points
-
-            // Process each row from input sheet
-            int outputRowNum = 1;
-            for (int i = 1; i <= inputSheet.getLastRowNum(); i++) {
-                Row inputRow = inputSheet.getRow(i);
-                if (inputRow == null) continue;
-
-                Row outputRow = outputSheet.createRow(outputRowNum++);
-                
-                // Extract and map data according to the structure
-                outputRow.createCell(0).setCellValue(getCellValueAsString(inputRow.getCell(0))); // Sku Code
-                outputRow.createCell(1).setCellValue(getCellValueAsString(inputRow.getCell(1))); // Min Amount
-                outputRow.createCell(2).setCellValue(getCellValueAsString(inputRow.getCell(2))); // Max Amount
-                outputRow.createCell(3).setCellValue(getCellValueAsString(inputRow.getCell(3))); // Include States
-                outputRow.createCell(4).setCellValue(getCellValueAsString(inputRow.getCell(4))); // Exclude States
-                outputRow.createCell(5).setCellValue(getCellValueAsString(inputRow.getCell(5))); // Bank Name
-                outputRow.createCell(6).setCellValue(getCellValueAsString(inputRow.getCell(6))); // Card Type
-                outputRow.createCell(7).setCellValue(getCellValueAsString(inputRow.getCell(7))); // Full Swipe Offer Amount Type
-                outputRow.createCell(8).setCellValue(getCellValueAsString(inputRow.getCell(8))); // Full Swipe Offer Value
-                outputRow.createCell(9).setCellValue(getCellValueAsString(inputRow.getCell(9))); // Full Swipe Offer Max Amount
-                outputRow.createCell(10).setCellValue(getCellValueAsString(inputRow.getCell(10))); // EMI Offer Amount Type
-                outputRow.createCell(11).setCellValue(getCellValueAsString(inputRow.getCell(11))); // EMI Offer Value
-                outputRow.createCell(12).setCellValue(getCellValueAsString(inputRow.getCell(12))); // EMI Offer Max Amount
-                outputRow.createCell(13).setCellValue(getCellValueAsString(inputRow.getCell(13))); // Full Swipe Subvention Type
-                outputRow.createCell(14).setCellValue(getCellValueAsString(inputRow.getCell(14))); // Full Swipe Bank Subvention Value
-                outputRow.createCell(15).setCellValue(getCellValueAsString(inputRow.getCell(15))); // Full Swipe Brand Subvention Value
-                outputRow.createCell(16).setCellValue(getCellValueAsString(inputRow.getCell(16))); // EMI Subvention Type
-                outputRow.createCell(17).setCellValue(getCellValueAsString(inputRow.getCell(17))); // EMI Bank Subvention Value
-                outputRow.createCell(18).setCellValue(getCellValueAsString(inputRow.getCell(18))); // EMI Brand Subvention Value
-                outputRow.createCell(19).setCellValue(getCellValueAsString(inputRow.getCell(19))); // Start Date
-                outputRow.createCell(20).setCellValue(getCellValueAsString(inputRow.getCell(20))); // End Date
-            }
-
-            // Auto-size columns
-            for (int i = 0; i < headers.length; i++) {
-                outputSheet.autoSizeColumn(i);
-            }
-
-            // Write workbook to byte array
-            try (ByteArrayOutputStream outputStream = new ByteArrayOutputStream()) {
-                outputWorkbook.write(outputStream);
-                return outputStream.toByteArray();
-            }
+            logger.error("Error processing Excel file: ", e);
+            throw new IOException("Error processing Excel file: " + e.getMessage());
         }
     }
 
     public byte[] processCsvFile(byte[] fileBytes) throws IOException {
-        try (Workbook workbook = new XSSFWorkbook()) {
-            Sheet sheet = workbook.createSheet("Offer Details");
-            
-            // Read CSV content
-            String csvContent = new String(fileBytes);
-            String[] lines = csvContent.split("\\r?\\n");
-            
-            // Process each line
-            for (int i = 0; i < lines.length; i++) {
-                String[] values = lines[i].split(",");
-                Row row = sheet.createRow(i);
-                for (int j = 0; j < values.length; j++) {
-                    row.createCell(j).setCellValue(values[j].trim());
-                }
+        logger.info("Starting file processing");
+        try {
+            // Validate file content
+            if (fileBytes == null || fileBytes.length == 0) {
+                throw new IllegalArgumentException("File is empty");
+            }
+
+            // Detect file type and process accordingly
+            String fileContent;
+            if (isExcelFile(fileBytes)) {
+                logger.info("Detected Excel file, processing as Excel");
+                fileContent = readExcelFile(new ByteArrayInputStream(fileBytes));
+            } else {
+                logger.info("Detected CSV file, processing as CSV");
+                fileContent = new String(fileBytes);
             }
             
-            return processSheet(sheet);
+            logger.info("File Content (first 1000 chars):\n{}", fileContent.substring(0, Math.min(1000, fileContent.length())));
+
+            // Create AI prompt for processing
+            String prompt = "You are a business assistant AI. Your task is to extract structured offer data from a product offer sheet provided in tabular format. Each row represents a distinct offer entry and must be processed individually.\n\n" +
+                "### INSTRUCTIONS:\n" +
+                "1. Process **every row** in the data.\n" +
+                "2. Each row should be mapped to **one JSON object**.\n" +
+                "3. Your final output must be a **JSON array** of multiple offer objects.\n" +
+                "4. Do **not** merge or combine information across rows.\n" +
+                "5. If there are 4 rows, your output must have 4 JSON objects.\n" +
+                "6. **DO NOT OMIT ANY ROW** – include all, even if some fields are missing.\n" +
+                "7. If a value is missing, return it as an **empty string** in the JSON.\n\n" +
+                "### SPECIAL CLARIFICATION FOR `sku_code`:\n" +
+                "- Each row contains the product name, variant, and Product ID. Combine these to form the SKU like:\n" +
+                "  `\"Xiaomi Pad 6|6GB+128GB|47867\"` or `\"Redmi Pad|4GB+128GB|43553\"`\n" +
+                "- Use this combined value as the **`sku_code`** field.\n" +
+                "- If a row applies to multiple SKUs, list them as comma-separated.\n" +
+                "- If the offer applies to all SKUs, use `\"All\"`.\n" +
+                "- If no SKU info is present, use `\"NA\"`.\n\n" +
+                "### YOUR OUTPUT MUST FOLLOW THIS EXACT JSON STRUCTURE:\n" +
+                "[\n" +
+                "  {\n" +
+                "    \"sku_code\": \"\",\n" +
+                "    \"min_amount\": \"\",\n" +
+                "    \"max_amount\": \"\",\n" +
+                "    \"include_states\": \"\",\n" +
+                "    \"exclude_states\": \"\",\n" +
+                "    \"bank_name\": \"\",\n" +
+                "    \"card_type\": \"\",\n" +
+                "    \"full_swipe_offer_amount_type\": \"\",\n" +
+                "    \"full_swipe_offer_value\": \"\",\n" +
+                "    \"full_swipe_offer_max_amount\": \"\",\n" +
+                "    \"emi_offer_amount_type\": \"\",\n" +
+                "    \"emi_offer_value\": \"\",\n" +
+                "    \"emi_offer_max_amount\": \"\",\n" +
+                "    \"full_swipe_subvention_type\": \"\",\n" +
+                "    \"full_swipe_bank_subvention_value\": \"\",\n" +
+                "    \"full_swipe_brand_subvention_value\": \"\",\n" +
+                "    \"emi_subvention_type\": \"\",\n" +
+                "    \"emi_bank_subvention_value\": \"\",\n" +
+                "    \"emi_brand_subvention_value\": \"\",\n" +
+                "    \"start_date\": \"\",\n" +
+                "    \"end_date\": \"\"\n" +
+                "  }\n" +
+                "]\n\n" +
+                "### ADDITIONAL INSTRUCTIONS:\n" +
+                "1. For dates, use format: YYYY-MM-DD HH:mm:ss\n" +
+                "2. For amount fields, use numbers without currency symbols\n" +
+                "3. For percentage fields, use the word \"Percentage\"\n" +
+                "4. For fixed amount fields, use the word \"Fixed\"\n" +
+                "5. For card type, use \"Credit\", \"Debit\", or \"Both\"\n" +
+                "6. For bank name, use the actual bank name or \"All\"\n\n" +
+                "Data:\n" + fileContent;
+
+            // Call AI service
+            String response = callAIService(prompt);
+            logger.info("Raw AI Response:\n{}", response);
+
+            // Clean and validate JSON response
+            String cleanedResponse = cleanJsonResponse(response);
+            logger.info("Cleaned JSON Response:\n{}", cleanedResponse);
+
+            // Parse JSON response
+            ObjectMapper mapper = new ObjectMapper();
+            JsonNode rootNode = mapper.readTree(cleanedResponse);
+            
+            if (!rootNode.isArray()) {
+                logger.info("Converting single object to array");
+                ArrayNode arrayNode = mapper.createArrayNode();
+                arrayNode.add(rootNode);
+                rootNode = arrayNode;
+            }
+            
+            // Create Excel workbook with the processed data
+            try (Workbook workbook = new XSSFWorkbook()) {
+                Sheet sheet = workbook.createSheet("Offer Details");
+                
+                // Create header style
+                CellStyle headerStyle = workbook.createCellStyle();
+                Font headerFont = workbook.createFont();
+                headerFont.setBold(true);
+                headerStyle.setFont(headerFont);
+                headerStyle.setFillForegroundColor(IndexedColors.GREY_25_PERCENT.getIndex());
+                headerStyle.setFillPattern(FillPatternType.SOLID_FOREGROUND);
+                headerStyle.setAlignment(HorizontalAlignment.CENTER);
+                headerStyle.setVerticalAlignment(VerticalAlignment.CENTER);
+                headerStyle.setBorderBottom(BorderStyle.THIN);
+                headerStyle.setBorderTop(BorderStyle.THIN);
+                headerStyle.setBorderLeft(BorderStyle.THIN);
+                headerStyle.setBorderRight(BorderStyle.THIN);
+                headerStyle.setWrapText(true);
+                
+                String[] headers = {
+                    "Sku Code (All/Specific SKU/NA)*",
+                    "Min Amount*",
+                    "Max Amount",
+                    "Include States",
+                    "Exclude States",
+                    "Bank Name (All/Specific Bank/Few Banks)*",
+                    "Card Type (Credit/Debit/Both)",
+                    "Full Swipe Offer Amount Type (Fixed/Percentage)*",
+                    "Full Swipe Offer Value",
+                    "Full Swipe Offer Max Amount (Percentage Type Case)",
+                    "EMI Offer Amount Type (Fixed/Percentage)*",
+                    "EMI Offer Value",
+                    "EMI Offer Max Amount (Percentage Type Case)",
+                    "Full Swipe Subvention Type (Fixed/Percentage)",
+                    "Full Swipe Bank Subvention Value",
+                    "Full Swipe Brand Subvention Value",
+                    "EMI Subvention Type (Fixed/Percentage)",
+                    "EMI Bank Subvention Value",
+                    "EMI Brand Subvention Value",
+                    "Start Date(yyyy-MM-dd HH:mm:sss)",
+                    "End Date(yyyy-MM-dd HH:mm:sss)"
+                };
+
+                // Create header row
+                Row headerRow = sheet.createRow(0);
+                for (int i = 0; i < headers.length; i++) {
+                    Cell cell = headerRow.createCell(i);
+                    cell.setCellValue(headers[i]);
+                    cell.setCellStyle(headerStyle);
+                    sheet.setColumnWidth(i, 256 * 30);
+                }
+                headerRow.setHeight((short) 900);
+
+                // Process each object from AI response
+                int rowNum = 1;
+                for (JsonNode offerNode : rootNode) {
+                    Row dataRow = sheet.createRow(rowNum++);
+                    int colNum = 0;
+                    
+                    // Map JSON fields to Excel columns
+                    createCell(dataRow, colNum++, offerNode.get("sku_code"));
+                    createCell(dataRow, colNum++, offerNode.get("min_amount"));
+                    createCell(dataRow, colNum++, offerNode.get("max_amount"));
+                    createCell(dataRow, colNum++, offerNode.get("include_states"));
+                    createCell(dataRow, colNum++, offerNode.get("exclude_states"));
+                    createCell(dataRow, colNum++, offerNode.get("bank_name"));
+                    createCell(dataRow, colNum++, offerNode.get("card_type"));
+                    createCell(dataRow, colNum++, offerNode.get("full_swipe_offer_amount_type"));
+                    createCell(dataRow, colNum++, offerNode.get("full_swipe_offer_value"));
+                    createCell(dataRow, colNum++, offerNode.get("full_swipe_offer_max_amount"));
+                    createCell(dataRow, colNum++, offerNode.get("emi_offer_amount_type"));
+                    createCell(dataRow, colNum++, offerNode.get("emi_offer_value"));
+                    createCell(dataRow, colNum++, offerNode.get("emi_offer_max_amount"));
+                    createCell(dataRow, colNum++, offerNode.get("full_swipe_subvention_type"));
+                    createCell(dataRow, colNum++, offerNode.get("full_swipe_bank_subvention_value"));
+                    createCell(dataRow, colNum++, offerNode.get("full_swipe_brand_subvention_value"));
+                    createCell(dataRow, colNum++, offerNode.get("emi_subvention_type"));
+                    createCell(dataRow, colNum++, offerNode.get("emi_bank_subvention_value"));
+                    createCell(dataRow, colNum++, offerNode.get("emi_brand_subvention_value"));
+                    createCell(dataRow, colNum++, offerNode.get("start_date"));
+                    createCell(dataRow, colNum++, offerNode.get("end_date"));
+                }
+
+                // Auto-size columns
+                for (int i = 0; i < headers.length; i++) {
+                    sheet.autoSizeColumn(i);
+                }
+
+                // Write to byte array
+                ByteArrayOutputStream outputStream = new ByteArrayOutputStream();
+                workbook.write(outputStream);
+                byte[] result = outputStream.toByteArray();
+                logger.info("Generated Excel file size: {} bytes", result.length);
+                return result;
+            }
+        } catch (Exception e) {
+            logger.error("Error processing file: {}", e.getMessage());
+            throw new IOException("Error processing file: " + e.getMessage());
         }
+    }
+
+    private boolean isExcelFile(byte[] fileBytes) {
+        // Check for Excel file signature
+        if (fileBytes.length >= 4) {
+            // Check for XLSX signature (PK header)
+            if (fileBytes[0] == 0x50 && fileBytes[1] == 0x4B) {
+                return true;
+            }
+            // Check for XLS signature
+            if (fileBytes[0] == (byte)0xD0 && fileBytes[1] == (byte)0xCF) {
+                return true;
+            }
+        }
+        return false;
     }
 
     public byte[] processRawText(String rawText) throws IOException {

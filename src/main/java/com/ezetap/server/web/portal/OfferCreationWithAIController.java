@@ -12,6 +12,7 @@ import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.http.MediaType;
 import org.springframework.http.ResponseEntity;
 import org.springframework.http.HttpStatus;
+import org.springframework.http.HttpHeaders;
 import org.springframework.web.bind.annotation.*;
 import org.springframework.web.multipart.MultipartFile;
 import javax.servlet.http.HttpServletResponse;
@@ -39,15 +40,25 @@ public class OfferCreationWithAIController {
         this.objectMapper = objectMapper;
     }
 
-    @ApiOperation(value = "Extract JSON from input file")
+    @ApiOperation(value = "Extract JSON from input file or raw text")
     @PostMapping("/extract-json")
-    public ResponseEntity<?> extractJson(@RequestParam("file") MultipartFile file) {
+    public ResponseEntity<?> extractJson(
+            @RequestParam(value = "file", required = false) MultipartFile file,
+            @RequestParam(value = "text", required = false) String text) {
         try {
-            String jsonResponse = offerService.extractAndGenerateOfferJson(file);
+            String jsonResponse;
+            if (file != null && !file.isEmpty()) {
+                jsonResponse = offerService.extractAndGenerateOfferJson(file);
+            } else if (text != null && !text.trim().isEmpty()) {
+                jsonResponse = offerService.extractFromRawText(text, false);
+            } else {
+                return ResponseEntity.badRequest().body("Either file or text must be provided");
+            }
             return ResponseEntity.ok(jsonResponse);
         } catch (Exception e) {
+            logger.error("Error processing input: ", e);
             return ResponseEntity.status(HttpStatus.INTERNAL_SERVER_ERROR)
-                    .body("Error processing file: " + e.getMessage());
+                    .body("Error processing input: " + e.getMessage());
         }
     }
 
@@ -114,26 +125,38 @@ public class OfferCreationWithAIController {
         value = "API to extract information from raw text.",
         notes = "This API accepts raw text and extracts structured offer data in JSON format with specific field names and formatting."
     )
-    @PostMapping(
-        value = "/extractText",
-        consumes = MediaType.APPLICATION_JSON_VALUE,
-        produces = MediaType.APPLICATION_JSON_VALUE
-    )
-    public ResponseEntity<?> extractOffer(@RequestBody RawTextRequest request) {
+    @PostMapping("/extractText")
+    public ResponseEntity<String> extractOffer(@RequestBody String rawText) {
         try {
-            String jsonOutput = offerService.extractFromRawText(request.getRawText());
-            
-            // Validate JSON structure
-            JsonNode jsonNode = objectMapper.readTree(jsonOutput);
-            validateRequiredFields(jsonNode);
-            
-            return ResponseEntity.ok()
-                .contentType(MediaType.APPLICATION_JSON)
-                .body(jsonOutput);
+            String jsonResponse = offerService.extractFromRawText(rawText, false);
+            return ResponseEntity.ok(jsonResponse);
         } catch (Exception e) {
-            return ResponseEntity
-                .status(HttpStatus.INTERNAL_SERVER_ERROR)
-                .body(new ErrorResponse("Error processing text: " + e.getMessage()));
+            logger.error("Error processing text: {}", e.getMessage());
+            return ResponseEntity.status(HttpStatus.INTERNAL_SERVER_ERROR)
+                    .body("Error processing text: " + e.getMessage());
+        }
+    }
+
+    @PostMapping("/extract-from-text")
+    public ResponseEntity<byte[]> extractFromText(@RequestBody String rawText) {
+        try {
+            // First get the JSON response for Excel format
+            String jsonResponse = offerService.extractFromRawText(rawText, true);
+            
+            // Generate Excel from the JSON response
+            byte[] excelBytes = offerService.generateExcelFromJson(jsonResponse);
+            
+            // Set response headers for Excel download
+            HttpHeaders headers = new HttpHeaders();
+            headers.setContentType(MediaType.APPLICATION_OCTET_STREAM);
+            headers.setContentDispositionFormData("attachment", "extracted_offers.xlsx");
+            headers.setContentLength(excelBytes.length);
+            
+            return new ResponseEntity<>(excelBytes, headers, HttpStatus.OK);
+        } catch (Exception e) {
+            logger.error("Error processing text: {}", e.getMessage());
+            return ResponseEntity.status(HttpStatus.INTERNAL_SERVER_ERROR)
+                    .body(("Error processing text: " + e.getMessage()).getBytes());
         }
     }
 
@@ -166,7 +189,7 @@ public class OfferCreationWithAIController {
                     throw new IllegalArgumentException("Unsupported file type");
                 }
             } else if (rawText != null && !rawText.trim().isEmpty()) {
-                jsonOutput = offerService.extractFromRawText(rawText);
+                jsonOutput = offerService.extractFromRawText(rawText, false);
             } else {
                 throw new IllegalArgumentException("No input provided");
             }
@@ -185,30 +208,28 @@ public class OfferCreationWithAIController {
         }
     }
 
-    @PostMapping("/extract-from-text")
-    public ResponseEntity<?> extractFromText(@RequestBody String rawText, HttpServletResponse response) {
+    @ApiOperation(value = "Extract data from CSV and return Excel file")
+    @PostMapping("/extractCsv")
+    public ResponseEntity<byte[]> extractCsv(@RequestParam("file") MultipartFile file) {
         try {
-            // Extract JSON from raw text
-            String jsonResponse = offerService.extractFromRawText(rawText);
-            
-            // Create Excel from JSON
-            byte[] excelBytes = offerService.generateExcelFromJson(jsonResponse);
+            if (file == null || file.isEmpty()) {
+                return ResponseEntity.badRequest().body("No file provided".getBytes());
+            }
+
+            // Process the CSV file
+            byte[] excelBytes = offerService.processCsvFile(file.getBytes());
             
             // Set response headers for Excel download
-            response.setContentType("application/vnd.openxmlformats-officedocument.spreadsheetml.sheet");
-            response.setHeader("Content-Disposition", "attachment; filename=extracted_offers.xlsx");
-            response.setContentLength(excelBytes.length);
+            HttpHeaders headers = new HttpHeaders();
+            headers.setContentType(MediaType.APPLICATION_OCTET_STREAM);
+            headers.setContentDispositionFormData("attachment", "extracted_offers.xlsx");
+            headers.setContentLength(excelBytes.length);
             
-            // Write Excel data to response
-            try (OutputStream outputStream = response.getOutputStream()) {
-                outputStream.write(excelBytes);
-                outputStream.flush();
-            }
-            
-            return ResponseEntity.ok().build();
+            return new ResponseEntity<>(excelBytes, headers, HttpStatus.OK);
         } catch (Exception e) {
+            logger.error("Error processing CSV file: ", e);
             return ResponseEntity.status(HttpStatus.INTERNAL_SERVER_ERROR)
-                    .body("Error processing text: " + e.getMessage());
+                    .body(("Error processing CSV file: " + e.getMessage()).getBytes());
         }
     }
 
@@ -219,7 +240,7 @@ public class OfferCreationWithAIController {
             "full_swipe_offer_value", "emi_offer_value",
             "start_date", "end_date"
         };
-
+        
         for (String field : requiredFields) {
             if (!json.has(field) || json.get(field).asText().trim().isEmpty()) {
                 throw new IllegalArgumentException("Missing required field: " + field);
