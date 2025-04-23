@@ -1,6 +1,6 @@
-import React, { useState } from 'react';
-import './styles.css';
-
+import React, { useState } from "react";
+import "./styles.css";
+import "./uploadForm.css";
 interface OfferData {
   brand: string;
   offerType: string;
@@ -43,23 +43,23 @@ interface SkuData {
 const OfferCreationAI: React.FC = () => {
   const [step, setStep] = useState<number>(1);
   const [formData, setFormData] = useState<OfferData>({
-    brand: '',
-    offerType: '',
-    offerStartDate: '',
-    offerEndDate: '',
-    offerDescription: '',
-    orgAcquisitionType: '',
-    velocityCheckType: '',
+    brand: "",
+    offerType: "",
+    offerStartDate: "",
+    offerEndDate: "",
+    offerDescription: "",
+    orgAcquisitionType: "",
+    velocityCheckType: "",
     commonVelocityEnabled: false,
-    velocityCheckApplied: 'Per Transaction',
+    velocityCheckApplied: "Per Transaction",
     velocityCheckCount: 1,
     priority: 1,
-    offerCode: ''
+    offerCode: "",
   });
 
   const [skuData, setSkuData] = useState<SkuData | null>(null);
-  const [rawText, setRawText] = useState('');
-  const [error, setError] = useState('');
+  const [rawText, setRawText] = useState("");
+  const [error, setError] = useState("");
   const [file, setFile] = useState<File | null>(null);
   const [loading, setLoading] = useState(false);
 
@@ -71,58 +71,58 @@ const OfferCreationAI: React.FC = () => {
 
   const transformSkuDataToOfferData = (data: SkuData): OfferData => {
     const brandMatch = data.sku_code.match(/^([A-Za-z]+)/);
-    const brand = brandMatch ? brandMatch[1].toUpperCase() : '';
+    const brand = brandMatch ? brandMatch[1].toUpperCase() : "";
 
     return {
       brand,
-      offerType: 'Additional Cashback',
-      offerStartDate: data.start_date.split(' ')[0],
-      offerEndDate: data.end_date.split(' ')[0],
+      offerType: "Additional Cashback",
+      offerStartDate: data.start_date.split(" ")[0],
+      offerEndDate: data.end_date.split(" ")[0],
       offerDescription: `${data.full_swipe_offer_amount_type} offer of ${data.full_swipe_offer_value} for ${data.bank_name} ${data.card_type} cards`,
-      orgAcquisitionType: 'Direct',
-      velocityCheckType: 'PERDAY',
+      orgAcquisitionType: "Direct",
+      velocityCheckType: "PERDAY",
       commonVelocityEnabled: true,
-      velocityCheckApplied: 'Per Transaction',
+      velocityCheckApplied: "Per Transaction",
       velocityCheckCount: 1,
       priority: 1,
-      offerCode: `${brand}_${data.bank_name}_${data.start_date.split(' ')[0]}`
+      offerCode: `${brand}_${data.bank_name}_${data.start_date.split(" ")[0]}`,
     };
   };
 
   const handleTextSubmit = async () => {
     if (!rawText.trim()) {
-      setError('Please enter some text first');
+      setError("Please enter some text first");
       return;
     }
 
     try {
       setLoading(true);
-      setError('');
+      setError("");
 
       const [jsonResponse, excelResponse] = await Promise.all([
-        fetch('http://localhost:8080/api/offer/extractText', {
-          method: 'POST',
+        fetch("http://localhost:8080/api/offer/extractText", {
+          method: "POST",
           headers: {
-            'Content-Type': 'application/json'
+            "Content-Type": "application/json",
           },
-          body: JSON.stringify({ text: rawText })
+          body: JSON.stringify({ text: rawText }),
         }),
-        fetch('http://localhost:8080/api/offer/extract-from-text', {
-          method: 'POST',
+        fetch("http://localhost:8080/api/offer/extract-from-text", {
+          method: "POST",
           headers: {
-            'Content-Type': 'text/plain'
+            "Content-Type": "text/plain",
           },
-          body: rawText
-        })
+          body: rawText,
+        }),
       ]);
 
       if (!jsonResponse.ok || !excelResponse.ok) {
-        throw new Error('Failed to extract offer details');
+        throw new Error("Failed to extract offer details");
       }
 
       const data = await jsonResponse.json();
-      
-      if ('sku_code' in data) {
+
+      if ("sku_code" in data) {
         setSkuData(data);
         setFormData(transformSkuDataToOfferData(data));
       } else {
@@ -132,12 +132,14 @@ const OfferCreationAI: React.FC = () => {
 
       // Handle Excel download
       const blob = await excelResponse.blob();
-      const url = window.URL.createObjectURL(new Blob([blob], { 
-        type: 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet' 
-      }));
-      const a = document.createElement('a');
+      const url = window.URL.createObjectURL(
+        new Blob([blob], {
+          type: "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet",
+        })
+      );
+      const a = document.createElement("a");
       a.href = url;
-      a.download = 'extracted_offers.xlsx';
+      a.download = "extracted_offers.xlsx";
       document.body.appendChild(a);
       a.click();
       window.URL.revokeObjectURL(url);
@@ -146,7 +148,7 @@ const OfferCreationAI: React.FC = () => {
       // Move to the next step
       setStep(3);
     } catch (err) {
-      setError(err instanceof Error ? err.message : 'An error occurred');
+      setError(err instanceof Error ? err.message : "An error occurred");
     } finally {
       setLoading(false);
     }
@@ -154,35 +156,35 @@ const OfferCreationAI: React.FC = () => {
 
   const handleFileSubmit = async () => {
     if (!file) {
-      setError('Please select a file first');
+      setError("Please select a file first");
       return;
     }
 
     if (file.size === 0) {
-      setError('The selected file is empty');
+      setError("The selected file is empty");
       return;
     }
 
     try {
       setLoading(true);
-      setError('');
+      setError("");
 
       const formData = new FormData();
-      formData.append('file', file);
+      formData.append("file", file);
 
       const [jsonResponse, csvResponse] = await Promise.all([
-        fetch('http://localhost:8080/api/offer/extract-json', {
-          method: 'POST',
-          body: formData
+        fetch("http://localhost:8080/api/offer/extract-json", {
+          method: "POST",
+          body: formData,
         }),
-        fetch('http://localhost:8080/api/csv/process', {
-          method: 'POST',
-          body: formData
-        })
+        fetch("http://localhost:8080/api/csv/process", {
+          method: "POST",
+          body: formData,
+        }),
       ]);
 
       if (!jsonResponse.ok) {
-        throw new Error('Failed to extract offer details');
+        throw new Error("Failed to extract offer details");
       }
 
       const data = await jsonResponse.json();
@@ -190,13 +192,13 @@ const OfferCreationAI: React.FC = () => {
 
       if (csvResponse.ok) {
         const arrayBuffer = await csvResponse.arrayBuffer();
-        const blob = new Blob([arrayBuffer], { 
-          type: 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet' 
+        const blob = new Blob([arrayBuffer], {
+          type: "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet",
         });
         const url = window.URL.createObjectURL(blob);
-        const a = document.createElement('a');
+        const a = document.createElement("a");
         a.href = url;
-        a.download = 'extracted_offers.xlsx';
+        a.download = "extracted_offers.xlsx";
         document.body.appendChild(a);
         a.click();
         window.URL.revokeObjectURL(url);
@@ -206,7 +208,7 @@ const OfferCreationAI: React.FC = () => {
       // Move to the next step
       setStep(3);
     } catch (err) {
-      setError(err instanceof Error ? err.message : 'An error occurred');
+      setError(err instanceof Error ? err.message : "An error occurred");
     } finally {
       setLoading(false);
     }
@@ -215,11 +217,14 @@ const OfferCreationAI: React.FC = () => {
   const renderStep1 = () => (
     <div className="welcome-screen">
       <h1>Create Offer with AI</h1>
-      <p>Welcome to the AI-powered offer creation system. Let's help you create your offer quickly and efficiently.</p>
-      <button 
+      <p>
+        Welcome to the AI-powered offer creation system. Let's help you create
+        your offer quickly and efficiently.
+      </p>
+      <button
         onClick={() => setStep(2)}
         className="primary-button"
-        style={{ margin: 'auto' }}
+        style={{ margin: "auto" }}
       >
         Get Started
       </button>
@@ -227,68 +232,44 @@ const OfferCreationAI: React.FC = () => {
   );
 
   const renderStep2 = () => (
-    <div className="input-section" style={{ 
-      backgroundColor: 'black', 
-      padding: '20px', 
-      borderRadius: '8px',
-      display: 'flex',
-      flexDirection: 'column',
-      alignItems: 'center'
-    }}>
-      <h2 style={{ color: 'white', textAlign: 'center' }}>Upload Offer Details</h2>
-      <div className="text-input" style={{ 
-        display: 'flex', 
-        flexDirection: 'column', 
-        alignItems: 'center',
-        width: '100%'
-      }}>
+    <div className="input-section-render2">
+      <h2 className="heading-render2">Upload Offer Details</h2>
+
+      <div className="text-input-render2">
         <textarea
           value={rawText}
           onChange={(e) => setRawText(e.target.value)}
           placeholder="Please Enter Offer Details Here"
-          style={{ width: '80%', marginBottom: '20px' }}
+          className="textarea-render2"
         />
-        <button 
+        <button
           onClick={handleTextSubmit}
-          id='text-submit'
-          style={{ 
-            marginBottom: '20px',
-            width: '200px',
-            display: 'block',
-            margin: '0 auto'
-          }}
+          id="text-submit"
+          className="button-render2"
           disabled={loading}
         >
           Extract from Text
         </button>
       </div>
 
-      <div className="file-input" style={{ 
-        display: 'flex', 
-        flexDirection: 'column', 
-        alignItems: 'center',
-        width: '100%'
-      }}>
+      <div className="file-input-render2">
+        <label htmlFor="file-upload" className="file-upload-label-render2">
+          <span className="upload-icon-render2">📁</span>
+          <span className="upload-text-render2">
+            {!file ?" Click to Upload Offer File (Excel/CSV)" : file.name}
+          </span>
+        </label>
         <input
           type="file"
           accept=".xlsx,.xls,.csv"
           onChange={handleFileChange}
           id="file-upload"
-          style={{ width: '80%', marginBottom: '20px' }}
+          className="file-upload-render2"
         />
-        <label htmlFor="file-upload" className="file-upload-label">
-          Please Upload Offer file here (Excel/CSV)
-        </label>
-        {file && <div className="file-name">Selected: {file.name}</div>}
-        <button 
+        <button
           onClick={handleFileSubmit}
           id="file-submit"
-          style={{ 
-            marginTop: '20px',
-            width: '200px',
-            display: 'block',
-            margin: '0 auto'
-          }}
+          className="button-render2"
           disabled={loading}
         >
           Extract from File
@@ -307,7 +288,7 @@ const OfferCreationAI: React.FC = () => {
             <h3>SKU Details</h3>
             {Object.entries(skuData).map(([key, value]) => (
               <div key={key} className="form-field">
-                <label>{key.replace(/_/g, ' ').toUpperCase()}</label>
+                <label>{key.replace(/_/g, " ").toUpperCase()}</label>
                 <input type="text" value={value} readOnly />
               </div>
             ))}
@@ -318,11 +299,11 @@ const OfferCreationAI: React.FC = () => {
             <h3>Offer Details</h3>
             {Object.entries(formData).map(([key, value]) => (
               <div key={key} className="form-field">
-                <label>{key.replace(/([A-Z])/g, ' $1').toUpperCase()}</label>
-                <input 
-                  type={typeof value === 'boolean' ? 'checkbox' : 'text'}
-                  checked={typeof value === 'boolean' ? value : undefined}
-                  value={typeof value !== 'boolean' ? value : undefined}
+                <label>{key.replace(/([A-Z])/g, " $1").toUpperCase()}</label>
+                <input
+                  type={typeof value === "boolean" ? "checkbox" : "text"}
+                  checked={typeof value === "boolean" ? value : undefined}
+                  value={typeof value !== "boolean" ? value : undefined}
                   readOnly
                 />
               </div>
@@ -330,30 +311,49 @@ const OfferCreationAI: React.FC = () => {
           </div>
         )}
       </div>
-      <div className="action-buttons" style={{ display: 'flex', flexDirection: 'column', gap: '10px', alignItems: 'center' }}>
-        <div className="file-input" style={{ 
-          display: 'flex', 
-          flexDirection: 'column', 
-          alignItems: 'center',
-          width: '100%',
-          marginBottom: '20px'
-        }}>
+      <div
+        className="action-buttons"
+        style={{
+          display: "flex",
+          flexDirection: "column",
+          gap: "10px",
+          alignItems: "center",
+        }}
+      >
+        <div
+          className="file-input"
+          style={{
+            display: "flex",
+            flexDirection: "column",
+            alignItems: "center",
+            width: "100%",
+            marginBottom: "20px",
+          }}
+        >
           <input
             type="file"
             accept=".xlsx,.xls,.csv"
             onChange={handleFileChange}
             id="offer-upload"
-            style={{ width: '80%', marginBottom: '20px' }}
+            style={{ width: "80%", marginBottom: "20px" }}
           />
           <label htmlFor="offer-upload" className="file-upload-label">
             Upload Offer Sheet
           </label>
           {file && <div className="file-name">Selected: {file.name}</div>}
         </div>
-        <button onClick={() => setStep(2)} className="secondary-button" style={{ width: '200px' }}>
+        <button
+          onClick={() => setStep(2)}
+          className="secondary-button"
+          style={{ width: "200px" }}
+        >
           Back to Upload
         </button>
-        <button onClick={() => setStep(4)} className="primary-button" style={{ width: '200px' }}>
+        <button
+          onClick={() => setStep(4)}
+          className="primary-button"
+          style={{ width: "200px" }}
+        >
           Submit Details
         </button>
       </div>
@@ -361,34 +361,46 @@ const OfferCreationAI: React.FC = () => {
   );
 
   const renderStep4 = () => (
-    <div className="success-screen" style={{ 
-      textAlign: 'center', 
-      padding: '40px',
-      backgroundColor: 'black',
-      borderRadius: '8px',
-      color: 'white'
-    }}>
-      <h2 style={{ fontSize: '2em', marginBottom: '20px' }}>Success!</h2>
-      <p style={{ fontSize: '1.2em', marginBottom: '30px' }}>
+    <div
+      className="success-screen"
+      style={{
+        textAlign: "center",
+        padding: "40px",
+        backgroundColor: "black",
+        borderRadius: "8px",
+        color: "white",
+      }}
+    >
+      <h2 style={{ fontSize: "2em", marginBottom: "20px" }}>Success!</h2>
+      <p style={{ fontSize: "1.2em", marginBottom: "30px" }}>
         Your offer has been successfully created and submitted.
       </p>
-      <div style={{ marginBottom: '20px' }}>
-        <svg width="100" height="100" viewBox="0 0 24 24" fill="none" xmlns="http://www.w3.org/2000/svg">
-          <path d="M9 16.17L4.83 12l-1.42 1.41L9 19 21 7l-1.41-1.41L9 16.17z" fill="green"/>
+      <div style={{ marginBottom: "20px" }}>
+        <svg
+          width="100"
+          height="100"
+          viewBox="0 0 24 24"
+          fill="none"
+          xmlns="http://www.w3.org/2000/svg"
+        >
+          <path
+            d="M9 16.17L4.83 12l-1.42 1.41L9 19 21 7l-1.41-1.41L9 16.17z"
+            fill="green"
+          />
         </svg>
         <p>Offer_abchsjjs123400</p>
       </div>
-      <button 
-        onClick={() => window.location.reload()} 
+      <button
+        onClick={() => window.location.reload()}
         className="primary-button"
-        style={{ 
-          padding: '10px 20px',
-          fontSize: '1.1em',
-          backgroundColor: '#4CAF50',
-          color: 'white',
-          border: 'none',
-          borderRadius: '4px',
-          cursor: 'pointer'
+        style={{
+          padding: "10px 20px",
+          fontSize: "1.1em",
+          backgroundColor: "#4CAF50",
+          color: "white",
+          border: "none",
+          borderRadius: "4px",
+          cursor: "pointer",
         }}
       >
         Create Another Offer
@@ -407,4 +419,4 @@ const OfferCreationAI: React.FC = () => {
   );
 };
 
-export default OfferCreationAI; 
+export default OfferCreationAI;
